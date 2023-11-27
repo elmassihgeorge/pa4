@@ -37,7 +37,7 @@ class PolynomialRegressionModel(Model):
     Linear regression model with polynomial features (powers of x up to specified degree).
     x and y are real numbers. The goal is to fit y = hypothesis(x).
     """
-    def __init__(self, degree : int = 1, learning_rate : float = 1e-3):
+    def __init__(self, degree : int = 1, learning_rate : float = 1e-4):
         self.degree = degree
         self.learning_rate = learning_rate
         self.weights = [1 for _ in range(self.degree + 1)]
@@ -82,7 +82,10 @@ class PolynomialRegressionModel(Model):
     """
     def gradient(self, x, y):
         features = self.get_features(x)
-        return [2 * (self.hypothesis(x) - y) * feature for feature in features]
+        gradient = []
+        for feature in features:
+            gradient.append(2*(self.hypothesis(x)-y)*feature)
+        return gradient
 
     """
     Performs the training loop using the supplied dataset.
@@ -90,20 +93,18 @@ class PolynomialRegressionModel(Model):
     Use stochastic gradient descent (one weight update per sample)
     Choose an appropriate number of iterations for the training loop
     """
-    def train(self, dataset, evalset = None):
-        EPOCHS = 10000
-        EVAL_INTERVAL = 5
+    def train(self, dataset, epochs : int = 10000, interval : int = 50, evalset = None):
         eval_iters = []
         losses = []
 
-        for epoch in range(EPOCHS):
+        for epoch in range(epochs):
             for x, y in zip(dataset.xs, dataset.ys):
                 gradient = self.gradient(x, y)
                 for i in range(len(self.weights)):
                     self.weights[i] -= self.learning_rate * gradient[i]
-                if epoch % EVAL_INTERVAL == 0:
+                if epoch % interval == 0:
                     eval_iters.append(epoch)
-                    losses.append(dataset.compute_average_loss(self))
+                    losses.append(dataset.compute_average_loss(self, interval))
         return (eval_iters, losses)
                     
 
@@ -114,13 +115,24 @@ def linear_regression():
     # Examples
     sine_train = util.get_dataset("sine_train")
     sine_val = util.get_dataset("sine_val")
-    sine_model = PolynomialRegressionModel()
-    eval_iters, losses = sine_model.train(sine_train)
+    sine_model = PolynomialRegressionModel(6, 1e-18)
+    eval_iters, losses = sine_model.train(sine_train, 50000)
     sine_train.plot_data(sine_model)
     sine_train.plot_loss_curve(eval_iters, losses)
 
-    # TODO: Plot loss data using compute_average_loss
-
+    test_hp = [
+        (1, 1e-4),
+        (1, 1e-2),
+        (2, 1e-4),
+        (2, 1e-6),
+        (3, 1e-6),
+        (4, 1e-8),
+        (4, 1e-12),
+        (5, 1e-12),
+        (5, 1e-15),
+        (6, 1e-18)
+    ]
+        
 
 
 # PA4 Q3
