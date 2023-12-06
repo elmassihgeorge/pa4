@@ -1,4 +1,4 @@
-from model import BinaryLogisticRegressionModel
+from PA4.model import BinaryLogisticRegressionModel
 
 
 def main():

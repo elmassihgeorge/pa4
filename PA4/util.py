@@ -92,7 +92,7 @@ class RegressionDataset(Dataset):
         self.ys = ys.tolist()
         self.index = 0
 
-    def plot_data(self, model : Model = None):
+    def plot_data(self, model = None):
         plt.scatter(self.xs, self.ys, c = 'k')
         if model is not None:
             xs_plot = np.linspace(0, 10, 100)

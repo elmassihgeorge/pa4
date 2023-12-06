@@ -93,7 +93,7 @@ class PolynomialRegressionModel(Model):
     Use stochastic gradient descent (one weight update per sample)
     Choose an appropriate number of iterations for the training loop
     """
-    def train(self, dataset, epochs : int = 10000, interval : int = 50, evalset = None):
+    def train(self, dataset, epochs : int = 10000, interval : int = 10, evalset = None):
         eval_iters = []
         losses = []
 
@@ -113,14 +113,17 @@ class PolynomialRegressionModel(Model):
 def linear_regression():
     "*** YOUR CODE HERE ***"
     # Examples
+    # Part (a)
     sine_train = util.get_dataset("sine_train")
-    sine_val = util.get_dataset("sine_val")
-    sine_model = PolynomialRegressionModel(6, 1e-18)
-    eval_iters, losses = sine_model.train(sine_train, 50000)
+    sine_model = PolynomialRegressionModel()
+    eval_iters, losses = sine_model.train(sine_train)
     sine_train.plot_data(sine_model)
+
+    # Part (b)
     sine_train.plot_loss_curve(eval_iters, losses)
 
-    test_hp = [
+    # Part (c)
+    test_hyperparameters = [
         (1, 1e-4),
         (1, 1e-2),
         (2, 1e-4),
@@ -133,8 +136,6 @@ def linear_regression():
         (6, 1e-18)
     ]
         
-
-
 # PA4 Q3
 class BinaryLogisticRegressionModel(Model):
     """
@@ -143,34 +144,64 @@ class BinaryLogisticRegressionModel(Model):
     The goal is to fit P(y = 1 | x) = hypothesis(x), and to make a 0/1 prediction using the hypothesis.
     """
 
-    def __init__(self, num_features, learning_rate = 1e-2):
-        "*** YOUR CODE HERE ***"
+    def __init__(self, num_features : int = 784, learning_rate : float = 1e-1):
+        self.num_features = num_features
+        self.learning_rate = learning_rate
+        self.weights = np.zeros(num_features + 1) 
 
     def get_features(self, x):
-        "*** YOUR CODE HERE ***"
+        return np.array(x).flatten()
 
     def get_weights(self):
-        "*** YOUR CODE HERE ***"
+        return self.weights[:-1]
 
     def hypothesis(self, x):
-        "*** YOUR CODE HERE ***"
+        z = np.dot(self.weights, np.insert(self.get_features(x), 0, 1))
+        return 1 / (1 + np.exp(-z))
 
     def predict(self, x):
-        "*** YOUR CODE HERE ***"
+        return 1 if self.hypothesis(x) >= 0.5 else 0
 
     def loss(self, x, y):
-        "*** YOUR CODE HERE ***"
-
+        hypothesis = self.hypothesis(x)
+        return -y * np.log(hypothesis) - (1 - y) * np.log(1 - hypothesis)
+    
     def gradient(self, x, y):
-        "*** YOUR CODE HERE ***"
+        hypothesis = self.hypothesis(x)
+        error = hypothesis - y
+        gradient = error * np.insert(self.get_features(x), 0, 1)
+        return gradient
 
-    def train(self, dataset, evalset = None):
-        "*** YOUR CODE HERE ***"
+    
+    def train(self, dataset, evalset=None, num_epochs=100):
+        eval_iters = []
+        accuracies = []
+        interval = 50
 
+        for epoch in range(num_epochs):
+            for x, y in zip(dataset.xs, dataset.ys):
+                grad = self.gradient(x, y)
+                self.weights -= self.learning_rate * grad
+            
+            if epoch % interval == 0:
+                accuracy = dataset.compute_average_accuracy(self)
+                accuracies.append(accuracy)
+                eval_iters.append(epoch + 1)
+                print(f"Epoch {epoch + 1}/{num_epochs}, Accuracy: {accuracy}")
+
+        return (eval_iters, accuracies)
 
 # PA4 Q4
 def binary_classification():
-    "*** YOUR CODE HERE ***"
+    mnist_binary_train = util.get_dataset("mnist_binary_train")
+    binary_logistic_regresion_model = BinaryLogisticRegressionModel()
+    mnist_binary_test = util.get_dataset("mnist_binary_test")
+    eval_iters, accuracies = binary_logistic_regresion_model.train(mnist_binary_train)
+    # mnist_binary_train.plot_accuracy_curve(eval_iters, accuracies)
+    mnist_binary_test.plot_accuracy_curve(eval_iters, accuracies)
+    mnist_binary_train.plot_confusion_matrix(binary_logistic_regresion_model)
+    mnist_binary_train.plot_image(binary_logistic_regresion_model.get_weights())
+
 
 
 # PA4 Q5
@@ -182,39 +213,69 @@ class MultiLogisticRegressionModel(Model):
     over the K classes, and to make a class prediction using the hypothesis.
     """
 
-    def __init__(self, num_features, num_classes, learning_rate = 1e-2):
-        "*** YOUR CODE HERE ***"
+    def __init__(self, num_features : int = 784, num_classes : int = 9, learning_rate = 1e-2):
+        self.num_features = num_features
+        self.num_classes = num_classes
+        self.learning_rate = learning_rate
+        self.weights = np.zeros((self.num_classes, self.num_features))
 
     def get_features(self, x):
-        "*** YOUR CODE HERE ***"
+        return np.array(x).flatten()
 
     def get_weights(self):
-        "*** YOUR CODE HERE ***"
+        return self.weights
 
     def hypothesis(self, x):
-        "*** YOUR CODE HERE ***"
+        z = np.dot(self.get_weights(), self.get_features(x))
+        return 1 / (1 + np.exp(-z))
 
     def predict(self, x):
-        "*** YOUR CODE HERE ***"
-
+        return np.argmax(self.hypothesis(x))
+    
     def loss(self, x, y):
-        "*** YOUR CODE HERE ***"
+        return -np.log(self.hypothesis(x)[y-1])
 
     def gradient(self, x, y):
-        "*** YOUR CODE HERE ***"
+        features = np.array(self.get_features(x))
+        h = self.hypothesis(x)
+        h[y-1] -= 1  # Gradient of cross-entropy loss for softmax
+        gradient = np.outer(h, features)
+        return gradient
 
-    def train(self, dataset, evalset = None):
-        "*** YOUR CODE HERE ***"
 
+    def train(self, dataset, evalset=None, epochs=1000):
+        eval_iters = []
+        accuracies = []
+        interval = 100
+    
+        for epoch in range(epochs):
+            for x, y in zip(dataset.xs, dataset.ys):
+                grad = self.gradient(x, y)
+                self.weights -= self.learning_rate * grad
+
+            if epoch % interval == 0 and evalset:
+                accuracy = evalset.compute_average_accuracy(self)
+                accuracies.append(accuracy)
+                eval_iters.append(epoch + 1)
+                print(f"Epoch {epoch + 1}/{epochs}, Accuracy: {accuracy:.4f}")
+
+        return (eval_iters, accuracies)
 
 # PA4 Q6
 def multi_classification():
-    "*** YOUR CODE HERE ***"
+    mnist_train = util.get_dataset("mnist_train")
+    mnist_test = util.get_dataset("mnist_test")
+    multi_logistic_regression_model = MultiLogisticRegressionModel()
+    eval_iters, accuracies = multi_logistic_regression_model.train(mnist_train, mnist_test)
+    print(eval_iters, accuracies)
+    mnist_test.plot_accuracy_curve(eval_iters, accuracies)
+    mnist_train.plot_confusion_matrix(multi_logistic_regression_model)
+    mnist_train.plot_image(multi_logistic_regression_model.get_weights())
 
 
 def main():
-    linear_regression()
-    binary_classification()
+    #linear_regression()
+    #binary_classification()
     multi_classification()
 
 if __name__ == "__main__":
